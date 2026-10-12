@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>[hidden]{display:none!important}html,body{margin:0}img{max-width:100%}</style>
+<title>CR Card Cleaner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow work column, three stacked steps, wide result table scrolls in its own box */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --fg:#17201d; --muted:#5d6b66; --line:#d7dedb;
+  --accent:#0f6b5c; --accent-fg:#ffffff; --accent-soft:#e1efeb;
+  --warn:#9a5b00; --warn-soft:#fbf0dc; --bad:#a3302a; --bad-soft:#f8e3e1;
+  --row-hit:#eef6f3; --mono-bg:#eef1f0;
+  --font-body:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121816; --surface:#1a2220; --fg:#e4ebe8; --muted:#97a6a0; --line:#2c3835;
+  --accent:#4fbfa8; --accent-fg:#0b1513; --accent-soft:#1d3530;
+  --warn:#e3a94a; --warn-soft:#33281a; --bad:#ef8a83; --bad-soft:#3a201e;
+  --row-hit:#1c2b27; --mono-bg:#222c29; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121816; --surface:#1a2220; --fg:#e4ebe8; --muted:#97a6a0; --line:#2c3835;
+  --accent:#4fbfa8; --accent-fg:#0b1513; --accent-soft:#1d3530;
+  --warn:#e3a94a; --warn-soft:#33281a; --bad:#ef8a83; --bad-soft:#3a201e;
+  --row-hit:#1c2b27; --mono-bg:#222c29; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6;margin:0}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:28px 56px;display:grid;gap:20px}
+header{display:grid;gap:4px}
+h1{font-size:1.6rem;line-height:1.25;margin:0;text-wrap:balance;font-weight:700}
+.sub{color:var(--muted);margin:0;max-width:65ch}
+.lock{display:inline-flex;gap:8px;align-items:center;font-size:.85rem;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:999px;width:fit-content;margin-top:6px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:12px;min-width:0}
+.step-h{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.step-n{font-family:var(--font-mono);font-size:.8rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.step h2{font-size:1.1rem;margin:0;font-weight:600}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:22px 16px;display:grid;gap:6px;justify-items:center;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over,.drop:focus-visible{border-color:var(--accent);background:var(--accent-soft);outline:none}
+.drop strong{font-weight:600}
+.drop small{color:var(--muted)}
+.file-line{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:.92rem}
+.chip{font-family:var(--font-mono);font-size:.82rem;background:var(--mono-bg);padding:2px 8px;border-radius:5px;overflow-wrap:anywhere}
+.chip.sample{background:var(--warn-soft);color:var(--warn);font-family:var(--font-body)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+label{font-weight:500}
+select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--fg);min-width:220px;max-width:100%}
+select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{color:var(--muted);font-size:.88rem;margin:0}
+button{font:inherit;font-weight:600;border-radius:7px;padding:9px 18px;cursor:pointer;border:1px solid transparent}
+.btn-primary{background:var(--accent);color:var(--accent-fg)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent;color:var(--accent);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.stats{display:flex;gap:28px;flex-wrap:wrap}
+.stat{display:grid}
+.stat b{font-size:1.5rem;font-variant-numeric:tabular-nums;line-height:1.2}
+.stat span{color:var(--muted);font-size:.85rem}
+.msg{padding:10px 12px;border-radius:7px;font-size:.92rem}
+.msg.ok{background:var(--accent-soft);color:var(--fg)}
+.msg.warn{background:var(--warn-soft);color:var(--fg)}
+.msg.bad{background:var(--bad-soft);color:var(--fg)}
+.tbl-box{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;font-size:.82rem;font-variant-numeric:tabular-nums;min-width:100%}
+th,td{padding:5px 9px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
+thead th{position:sticky;top:0;background:var(--mono-bg);font-family:var(--font-mono);font-weight:500;color:var(--muted);z-index:1}
+td:first-child,th:first-child{position:sticky;left:0;background:var(--surface);color:var(--muted);font-family:var(--font-mono)}
+thead th:first-child{background:var(--mono-bg);z-index:2}
+td.d{background:var(--row-hit);font-weight:600}
+.opt{border:1px solid var(--line);border-radius:8px;padding:10px 14px 14px;margin:0;display:grid;gap:10px;min-width:0}
+.opt legend{padding:0 6px;font-weight:600}
+.opt.off > :not(legend){opacity:.45;pointer-events:none}
+.chk{display:inline-flex;gap:8px;align-items:center;font-weight:500;cursor:pointer}
+.chk input{accent-color:var(--accent);width:16px;height:16px}
+select.sm{min-width:90px;font-family:var(--font-mono)}
+td.rm{background:var(--bad-soft)}
+td.rm::after{content:"ลบซ้ำ";font-size:.72rem;color:var(--bad)}
+td.sh{box-shadow:inset 3px 0 0 var(--warn)}
+.type-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.type-line > span:first-child{font-weight:500}
+.type-badge{font-weight:600;padding:3px 12px;border-radius:999px;font-size:.9rem}
+.type-badge.credit{background:var(--accent-soft);color:var(--accent)}
+.type-badge.fleet{background:var(--warn-soft);color:var(--warn)}
+.type-badge.none{background:var(--bad-soft);color:var(--bad)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:inherit;font-family:var(--font-mono);font-size:.82rem;font-weight:500;padding:5px 12px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.tab.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.pipe{margin:0;padding-left:1.4em;display:grid;gap:3px;font-size:.9rem}
+.pipe li::marker{color:var(--muted);font-family:var(--font-mono)}
+.pipe .todo{color:var(--muted)}
+tr.sum td{font-weight:700;border-top:1.5px solid var(--fg)}
+tr.gap td{height:8px;padding:0;border-bottom:0;background:var(--bg)}
+tr.gap td:first-child{background:var(--bg)}
+tr.hdr td{background:var(--accent-soft);font-weight:600;color:var(--fg)}
+tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
+.rules{margin:0;padding-left:1.2em;color:var(--muted);font-size:.88rem;display:grid;gap:2px}
+.rules code{font-family:var(--font-mono);font-size:.82rem;background:var(--mono-bg);padding:0 4px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>CR Card Cleaner</h1>
+    <p class="sub">ดึงเฉพาะแถวที่คอลัมน์ D เป็นตัวเลข ตรวจประเภทรายงาน แล้วจัดคอลัมน์ให้ตามประเภท ส่งออกเป็นไฟล์ที่ทุกช่องเป็นข้อความ เลข 0 นำหน้าจึงไม่หาย</p>
+    <span class="lock">ไฟล์ประมวลผลในเบราว์เซอร์นี้เท่านั้น ไม่มีการอัปโหลดไปที่ใด</span>
+  </header>
+
+  <section class="step" aria-labelledby="h1s">
+    <div class="step-h"><span class="step-n">ขั้นที่ 1</span><h2 id="h1s">เลือกไฟล์</h2></div>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="เลือกไฟล์ Excel">
+      <strong>ลากไฟล์มาวาง หรือคลิกเพื่อเลือก</strong>
+      <small>.xls .xlsx .xlsb .xlsm</small>
+    </div>
+    <input type="file" id="fileInput" accept=".xls,.xlsx,.xlsb,.xlsm" hidden>
+    <div class="file-line" id="fileLine"></div>
+  </section>
+
+  <section class="step" aria-labelledby="h2s">
+    <div class="step-h"><span class="step-n">ขั้นที่ 2</span><h2 id="h2s">เลือกชีต</h2></div>
+    <div class="row">
+      <label for="sheetSel">ชีต</label>
+      <select id="sheetSel" disabled></select>
+      <button class="btn-primary" id="runBtn" disabled>ประมวลผล</button>
+    </div>
+    <p class="hint" id="sheetHint"></p>
+    <div class="type-line"><span>ประเภทรายงาน</span><span class="type-badge none" id="typeBadge">ยังไม่ได้ตรวจ</span><span class="hint" id="typeWhere"></span></div>
+    <fieldset class="opt">
+      <legend>ขั้นตอนร่วม (ใช้กับทั้ง 2 ประเภท)</legend>
+      <p class="hint">ลบแถวว่างทั้งหมด ให้แถวที่มีข้อมูลเรียงชิดกัน แล้วแทรกแถวแรกเป็นหัวคอลัมน์</p>
+      <div class="row">
+        <label for="hdrMode">หัวคอลัมน์</label>
+        <select id="hdrMode">
+          <option value="src" selected>ใช้แถวหัวตารางจากไฟล์ต้นทาง</option>
+          <option value="letters">ใช้ชื่อคอลัมน์ Excel (D, E, F …)</option>
+          <option value="none">ไม่ใส่หัวคอลัมน์</option>
+        </select>
+      </div>
+    </fieldset>
+    <fieldset class="opt">
+      <legend>การแบ่งกลุ่มของรายงานบัตรฟลีทการ์ด</legend>
+      <p class="hint">เรียงตามเลข 4 หลักแรกหลังเครื่องหมาย / ในคอลัมน์ C ถ้าเท่ากัน เรียงตามชื่อบัตรหน้า / แล้วตามเวลาในคอลัมน์ B สรุปยอดเงิน (คอลัมน์ D) ตัวหนาท้ายกลุ่ม และเว้น 3 บรรทัดก่อนกลุ่มใหม่</p>
+      <div class="row">
+        <label for="grpMode">แบ่งกลุ่มตาม</label>
+        <select id="grpMode">
+          <option value="bin" selected>เลข 4 หลักหลัง / อย่างเดียว</option>
+          <option value="name">ชื่อบัตร + เลข 4 หลัก</option>
+        </select>
+      </div>
+    </fieldset>
+    <fieldset class="opt" id="dedupBox">
+      <legend><label class="chk"><input type="checkbox" id="dedupOn" checked> ลบค่าซ้ำภายในแถวเดียวกัน</label></legend>
+      <p class="hint">ถ้าในแถวเดียวกันมีค่าเหมือนกันหลายช่อง จะเก็บช่องแรกไว้และลบช่องที่ซ้ำออก แถวอื่นถือเป็นรายการอื่น ไม่นำมาเทียบกัน</p>
+      <div class="row">
+        <label for="ddFrom">ตรวจคอลัมน์ (ของไฟล์ผลลัพธ์)</label>
+        <select id="ddFrom" class="sm"></select>
+        <span>ถึง</span>
+        <select id="ddTo" class="sm" aria-label="ถึงคอลัมน์"></select>
+      </div>
+      <div class="row" role="radiogroup" aria-label="วิธีลบ">
+        <label class="chk"><input type="radio" name="ddMode" id="ddBlank" value="blank" checked> ปล่อยช่องว่างไว้ (คอลัมน์อื่นอยู่ที่เดิม)</label>
+        <label class="chk"><input type="radio" name="ddMode" id="ddShift" value="shift"> เลื่อนค่าที่เหลือมาทางซ้าย</label>
+      </div>
+    </fieldset>
+  </section>
+
+  <section class="step" aria-labelledby="h3s">
+    <div class="step-h"><span class="step-n">ขั้นที่ 3</span><h2 id="h3s">ผลลัพธ์</h2></div>
+    <div id="resultEmpty" class="hint">กดประมวลผลเพื่อดูผลลัพธ์</div>
+    <div id="result" hidden style="display:grid;gap:14px">
+      <div class="stats">
+        <div class="stat"><b id="stMatch">0</b><span>แถวข้อมูลในไฟล์ผลลัพธ์</span></div>
+        <div class="stat"><b id="stScan">0</b><span>แถวที่ตรวจทั้งหมด</span></div>
+        <div class="stat"><b id="stBlank">0</b><span>แถวว่างที่ลบ</span></div>
+        <div class="stat"><b id="stDup">0</b><span>ช่องซ้ำที่ลบ (ใน <span id="stDupRows">0</span> แถว)</span></div>
+        <div class="stat"><b id="stCols">40</b><span>คอลัมน์ในไฟล์ผลลัพธ์</span></div>
+      </div>
+      <div id="resMsg"></div>
+      <ol class="pipe" id="pipe"></ol>
+      <div class="row">
+        <button class="btn-primary" id="dlBtn">ดาวน์โหลด .xlsx</button>
+        <span class="chip" id="outName"></span>
+      </div>
+      <div class="tabs" id="sheetTabs" role="group" aria-label="ชีตในไฟล์ผลลัพธ์" hidden></div>
+      <div class="tbl-box"><table id="tbl"></table></div>
+      <p class="hint" id="tblNote"></p>
+    </div>
+  </section>
+
+  <section class="step" aria-labelledby="h4s">
+    <div class="step-h"><span class="step-n">กติกา</span><h2 id="h4s">เหมือนมาโครเดิม</h2></div>
+    <ul class="rules">
+      <li>ตรวจคอลัมน์ D ทุกแถว ตั้งแต่แถวแรกถึงแถวสุดท้ายที่มีข้อมูล รวมแถวที่ถูกซ่อน</li>
+      <li>ก่อนตรวจ ตัดช่องว่าง, อักขระ <code>Chr(160)</code> และเครื่องหมาย <code>'</code> ออก ตัวเลขที่เก็บเป็นข้อความก็นับว่าเป็นตัวเลข</li>
+      <li>เซลล์ที่ผสาน (merge) ใช้ค่าของเซลล์มุมซ้ายบน</li>
+      <li>ขั้นตอนร่วม: ลบแถวว่าง ให้แถวข้อมูลชิดกัน แล้วแทรกหัวคอลัมน์เป็นแถวแรก หัวคอลัมน์หาจากแถวที่อยู่เหนือแถวข้อมูลแรก และมีข้อความอย่างน้อย 2 ช่อง</li>
+      <li>รายงานบัตรเครดิต: ย้าย E→A, I→B, T→C, AL→D รายงานบัตรฟลีทการ์ด: ย้าย E→A, K→B, U→C, AN→D แล้วลบแถวที่ A ว่าง ตัวอักษรคอลัมน์นับจากตารางที่ตัดแล้ว (A = คอลัมน์ D ของไฟล์ต้นทาง ... AN = AQ)</li>
+      <li>รายงานบัตรเครดิต: ลบรายการที่ยอดเงิน D เป็น 0.00 หรือ -0.00 แล้วแบ่งกลุ่มจากหมายเลขบัตรคอลัมน์ C: 1) มีคำว่า AIS 2) บัตรเครดิต (เลขบัตรมี XXXXXX หรือ ******) 3) QR Payment 4) KPLUS&amp;PROM รวม KPLUS ไว้ก่อนแล้วต่อด้วย PROMPTPAY 5) แลกคะแนน 6) อื่นๆ ท้ายกลุ่มมียอดรวมตัวหนา เว้น 3 บรรทัดระหว่างกลุ่ม</li>
+      <li>ทั้ง 2 ประเภท: ถ้าหมายเลขบัตรจบด้วย / แล้วไม่มีเลขตามหลัง (ตัวเลขตกไปอีกหน้า) จะหาเลขที่หลุดไปในคอลัมน์หมายเลขบัตรของแถวถัดๆ ไป ก่อนถึงรายการถัดไป แล้วต่อกลับเป็นรายการเดียว</li>
+      <li>ทั้ง 2 ประเภท: รหัสกะเป็นระดับใหญ่สุด กะที่ 1 → กลุ่มต่างๆ ของกะนั้น → กะที่ 2 → … ภายในกลุ่มเรียงตามชื่อบัตรหน้า / → ชุดตัวเลขหลัง / จากน้อยไปมาก ทุกกลุ่มขึ้นต้นด้วยแถวหัวคอลัมน์</li>
+      <li>ไฟล์ผลลัพธ์แยกชีตตามกะ ชื่อ <code>shift_รหัสกะ</code> เช่น shift_7514 และมีชีตรวมทุกกะชื่อ <code>shift_all</code></li>
+      <li>ทั้ง 2 ประเภท: เพิ่มคอลัมน์ E “รหัสกะ” อ่านจากเซลล์ที่มีคำว่า “รหัสกะ” (ฟลีทการ์ดอยู่คอลัมน์ P ค่าอยู่ R / บัตรเครดิตอยู่ O ค่าอยู่ Q) ค่ารหัสอยู่ทางขวาในแถวเดียวกันหรือแถวถัดไป (เช่น R4/R5 หรือ R70) ทุกรายการใช้รหัสกะล่าสุดที่เจอด้านบน จนกว่าจะเจอรหัสใหม่ ถ้าเจอรหัสเดิมซ้ำ ถือเป็นกะเดียวกัน</li>
+      <li>รายงานบัตรฟลีทการ์ด: หัวคอลัมน์ A ชื่อ “ใบกำกับภาษีอย่างย่อ” เรียงตามเลข 4 หลักหลัง / ในคอลัมน์ C จากน้อยไปมาก ถ้าเท่ากันเรียงตามชื่อหน้า / แล้วตามเวลาในคอลัมน์ B ท้ายแต่ละกลุ่มมีแถวรวมยอดเงินตัวหนา และเว้น 3 บรรทัดก่อนกลุ่มถัดไป</li>
+      <li>ลบค่าซ้ำ (ถ้าเปิดไว้): เทียบเฉพาะช่องในแถวเดียวกันและในช่วงคอลัมน์ที่เลือก ช่องว่างไม่นับ ตัดช่องว่างหัวท้ายก่อนเทียบ ตัวพิมพ์เล็ก-ใหญ่ถือว่าต่างกัน</li>
+      <li>ไฟล์ผลลัพธ์ตั้งชื่อ <code>Cleaned_Upload_YYYYMMDD_HHMMSS.xlsx</code> ทุกเซลล์ฟอร์แมตข้อความ (@) จะถูกบันทึกในโฟลเดอร์ดาวน์โหลด แทนโฟลเดอร์เดียวกับไฟล์ต้นทาง</li>
+    </ul>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const COLS = 40, START_COL = 3; // D = index 3, AQ = index 42
+  let lastType = null, lastHeader = null, lastColSrc = [], lastDataRows = 0, lastShifts = [], curSheet = 0, lastJoined = [];
+  let wb = null, fileName = '', isSample = false, output = null, outFile = '';
+
+  // ---------- VBA-compatible helpers ----------
+  function vbaTrim(s){ return s.replace(/^ +| +$/g,''); }
+  function isNumericVBA(s){
+    let t = s.replace(/\s+/g,'');
+    if (!t) return false;
+    if (/^&H[0-9A-F]+$/i.test(t) || /^&O[0-7]+$/i.test(t)) return true;
+    if (/^\(.*\)$/.test(t)) t = t.slice(1,-1);
+    t = t.replace(/^[+-]/,'').replace(/[+-]$/,'');
+    t = t.replace(/^[$฿]/,'').replace(/[$฿]$/,'');
+    t = t.replace(/^[+-]/,'');
+    t = t.replace(/,/g,'');
+    return /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(t);
+  }
+  function fmtGeneral(n){
+    if (Number.isInteger(n) && Math.abs(n) < 1e15) return String(n);
+    return String(Number(n.toPrecision(15)));
+  }
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function fmtDate(d){ return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
+  // what VBA's CStr(cell.Value) would produce, for the column-D test
+  function cellToCheckString(c){
+    if (!c || c.v === undefined || c.v === null) return '';
+    switch(c.t){
+      case 'n': return fmtGeneral(c.v);
+      case 's': return String(c.v);
+      case 'b': return c.v ? 'True' : 'False';
+      case 'd': return c.w || fmtDate(c.v);
+      case 'e': return '#ERR';
+      default: return String(c.v);
+    }
+  }
+  // value written into a text-formatted ("@") output cell
+  function cellToOutput(c){
+    if (!c || c.v === undefined || c.v === null || c.v === '') return null;
+    switch(c.t){
+      case 'n': return fmtGeneral(c.v);
+      case 's': return String(c.v);
+      case 'b': return c.v ? 'TRUE' : 'FALSE';
+      case 'd': return c.w || fmtDate(c.v);
+      case 'e': return c.w || '#N/A';
+      default: return String(c.v);
+    }
+  }
+
+  function buildMergeMap(ws){
+    const map = new Map();
+    (ws['!merges']||[]).forEach(m=>{
+      if (m.e.c < START_COL || m.s.c > START_COL+COLS-1) return;
+      const tl = XLSX.utils.encode_cell(m.s);
+      for (let r=m.s.r;r<=m.e.r;r++) for (let c=m.s.c;c<=m.e.c;c++){
+        if (r===m.s.r && c===m.s.c) continue;
+        map.set(r+','+c, tl);
+      }
+    });
+    return map;
+  }
+  function lastRow(ws){
+    let max = -1;
+    for (const k in ws){ if (k[0]==='!') continue;
+      const r = XLSX.utils.decode_cell(k).r; if (r>max) max=r; }
+    if (ws['!ref']) max = Math.max(max, XLSX.utils.decode_range(ws['!ref']).e.r);
+    return max;
+  }
+
+  function processSheet(ws, cardIdx){
+    const merges = buildMergeMap(ws);
+    const get = (r,c)=>{ const tl = merges.get(r+','+c); return ws[tl || XLSX.utils.encode_cell({r,c})]; };
+    const maxR = lastRow(ws);
+    const rows = [];
+    // shift code labels ("รหัสกะ") anywhere in the sheet; the code applies to every row below it
+    const shiftLabels = new Map();
+    for (const k in ws){
+      if (k[0]==='!') continue; const c = ws[k];
+      if (c && c.t==='s' && /รหัส\s*กะ/.test(String(c.v))){ const a = XLSX.utils.decode_cell(k);
+        if (!shiftLabels.has(a.r) || a.c < shiftLabels.get(a.r)) shiftLabels.set(a.r, a.c); }
+    }
+    const txt = (r,c)=>{ const v = cellToOutput(ws[XLSX.utils.encode_cell({r,c})] || get(r,c)); return isBlank(v) ? '' : String(v).trim(); };
+    function readShift(r,c){
+      // 1) same cell: "รหัสกะ : 123"
+      const own = txt(r,c).replace(/รหัส\s*กะ/,'').replace(/^[\s:：]+/,'').trim();
+      if (own) return own;
+      // 2) same row to the right (e.g. P70 → R70)   3) next rows (e.g. P4 → R5)
+      for (const rr of [r, r+1, r+2]){
+        for (let cc = (rr===r ? c+1 : c); cc <= c+6; cc++){
+          const v = txt(rr,cc).replace(/^[:：\s]+/,'').trim();
+          if (v && !/รหัส\s*กะ/.test(v)) return v;
+        }
+      }
+      return null;
+    }
+    let shift = null; const shifts = [];
+    for (let r=0;r<=maxR;r++){
+      if (shiftLabels.has(r)){
+        const v = readShift(r, shiftLabels.get(r));
+        if (v){ if (v !== shift) shifts.push({code:v, row:r+1}); shift = v; }
+      }
+      const raw = cellToCheckString(get(r,START_COL));
+      const clean = vbaTrim(raw.replace(/ /g,'').replace(/'/g,''));
+      if (clean !== '' && isNumericVBA(clean)){
+        const out = new Array(COLS);
+        for (let c=0;c<COLS;c++) out[c] = cellToOutput(get(r,START_COL+c));
+        rows.push({src:r+1, data:out, shift});
+      }
+    }
+    // card number cut by a page break: "KTB PTT Co-brand/ " on the data row, digits printed alone on the next page
+    // (e.g. X168 + X193). Join the first loose value found in the card column before the next record.
+    const joined = [];
+    if (cardIdx != null){
+      const dataRows = new Map(rows.map(x=>[x.src-1, x]));
+      const cardCol = START_COL + cardIdx;
+      const incomplete = v => !isBlank(v) && /\/\s*$/.test(String(v)) ;
+      rows.forEach(rec=>{
+        const card = rec.data[cardIdx];
+        if (!incomplete(card)) return;
+        for (let rr = rec.src; rr <= maxR; rr++){          // rec.src is 1-based, so this starts on the next row
+          const other = dataRows.get(rr);
+          if (other){ if (other.data[cardIdx] === card && other.data[0] === rec.data[0]) continue; break; }
+          // only a value that really starts in the card column (no merge fill from page headers such as R177:AA178)
+          const raw = ws[XLSX.utils.encode_cell({r:rr, c:cardCol})];
+          const v = raw ? String(cellToOutput(raw) ?? '').trim() : '';
+          if (!v || !/^[\dXx*][\dXx*\s-]*$/.test(v)) continue;
+          rec.data[cardIdx] = String(card).replace(/\s+$/,'') + ' ' + v;
+          rec.joinedFrom = rr+1;
+          joined.push({row: rec.src, from: rr+1, text: rec.data[cardIdx]});
+          break;
+        }
+      });
+    }
+    // header: nearest row above the first data row that has 2+ filled cells in D..AQ
+    let header = null;
+    if (rows.length){
+      for (let r=rows[0].src-2; r>=0; r--){
+        const data = new Array(COLS); let n = 0;
+        for (let c=0;c<COLS;c++){
+          const isFill = merges.has(r+','+(START_COL+c));   // merged, not top-left: leave empty
+          data[c] = isFill ? null : cellToOutput(get(r,START_COL+c));
+          if (data[c] !== null && String(data[c]).trim() !== '') n++;
+        }
+        if (n >= 2 && !shiftLabels.has(r) && !shiftLabels.has(r-1)){ header = {src:r+1, data, isHeader:true}; break; }
+      }
+    }
+    return {rows, scanned: maxR+1, header, shifts, joined};
+  }
+
+  // ---------- report type: first matching title found in the sheet ----------
+  const REPORT_TYPES = {
+    credit: { label:'รายงานบัตรเครดิต',     re:/รายงานบัตรเครดิต/,
+              move:['E','I','T','AL'], dropIfAEmpty:false, dropZero:true, group:'credit', shiftCol:'รหัสกะ' },
+    fleet:  { label:'รายงานบัตรฟลีทการ์ด', re:/รายงานบัตรฟลี[ทต]การ์ด/,
+              move:['E','K','U','AN'], dropIfAEmpty:true,
+              headerA:'ใบกำกับภาษีอย่างย่อ', group:'fleet', shiftCol:'รหัสกะ' }
+  };
+  // letters in `move` refer to the cleaned table (A = source D … AN = source AQ)
+  const OUT_LETTERS = ['A','B','C','D'];
+  function srcLetter(outLetter){ return colName(XLSX.utils.decode_col(outLetter) + START_COL); }
+  const isBlank = v => v === null || v === undefined || String(v).trim() === '';
+  function applyMove(row, idx){ return Object.assign({}, row, {data: idx.map(i => row.data[i] === undefined ? null : row.data[i])}); }
+  function detectType(ws){
+    const cells = [];
+    for (const k in ws){
+      if (k[0]==='!') continue;
+      const c = ws[k]; if (!c || c.t!=='s') continue;
+      const a = XLSX.utils.decode_cell(k); cells.push({r:a.r, c:a.c, k, v:String(c.v)});
+    }
+    cells.sort((x,y)=> x.r-y.r || x.c-y.c);   // reading order: top to bottom, left to right
+    for (const cell of cells){
+      const t = cell.v.replace(/[\s\u00A0\u200B]/g,'');
+      for (const key in REPORT_TYPES){
+        if (REPORT_TYPES[key].re.test(t)) return {type:key, cell:cell.k, text:cell.v.trim()};
+      }
+    }
+    return {type:null};
+  }
+  function showType(det){
+    const b = $('typeBadge');
+    if (det.type){
+      b.className = 'type-badge '+det.type; b.textContent = REPORT_TYPES[det.type].label;
+      $('typeWhere').textContent = 'พบที่เซลล์ '+det.cell;
+    } else {
+      b.className = 'type-badge none'; b.textContent = 'ไม่พบหัวรายงาน';
+      $('typeWhere').textContent = 'ไม่เจอคำว่า “รายงานบัตรเครดิต” หรือ “รายงานบัตรฟลีทการ์ด” ในชีตนี้';
+    }
+  }
+
+  // ---------- fleet card grouping ----------
+  function cardParts(v){
+    const s = isBlank(v) ? '' : String(v);
+    const i = s.indexOf('/');
+    if (i < 0) return {name:s.trim(), bin:null};
+    const digits = s.slice(i+1).replace(/\D/g,'');
+    return {name:s.slice(0,i).trim(), bin: digits.length >= 4 ? digits.slice(0,4) : null};
+  }
+  function timeKey(v){
+    const s = isBlank(v) ? '' : String(v);
+    let d = '', t = '';
+    const dm = s.match(/(\d{1,4})[\/\-.](\d{1,2})[\/\-.](\d{1,4})/);
+    if (dm){
+      let [a,b,c] = [dm[1],dm[2],dm[3]];
+      d = a.length === 4 ? a+b.padStart(2,'0')+c.padStart(2,'0')      // yyyy-mm-dd
+                         : c.padStart(4,'0')+b.padStart(2,'0')+a.padStart(2,'0'); // dd/mm/yyyy
+    }
+    const tm = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (tm) t = tm[1].padStart(2,'0')+tm[2]+(tm[3]||'00');
+    return (d || t) ? d.padStart(8,'0')+t.padStart(6,'0') : s;
+  }
+  const cmpText = (a,b)=> a.localeCompare(b, 'th', {sensitivity:'base', numeric:true});
+  function toAmount(v){
+    if (isBlank(v)) return 0;
+    let s = String(v).replace(/[,\s฿$]/g,''); let neg = false;
+    if (/^\(.*\)$/.test(s)){ neg = true; s = s.slice(1,-1); }
+    const n = parseFloat(s); return isNaN(n) ? 0 : (neg ? -n : n);
+  }
+  function groupFleet(rows, byName){
+    const items = rows.map(r=>{ const p = cardParts(r.data[2]); return {r, p, tk: timeKey(r.data[1])}; });
+    items.sort((x,y)=>{
+      const bx = x.p.bin ?? '\uffff', by = y.p.bin ?? '\uffff';
+      if (bx !== by) return bx < by ? -1 : 1;
+      const n = cmpText(x.p.name, y.p.name); if (n) return n;
+      return x.tk < y.tk ? -1 : x.tk > y.tk ? 1 : 0;
+    });
+    const groups = [];
+    items.forEach(it=>{
+      const key = (it.p.bin ?? 'none') + (byName ? '|' + it.p.name.toLowerCase() : '');
+      let g = groups[groups.length-1];
+      if (!g || g.key !== key){ g = {key, bin:it.p.bin, name:it.p.name, rows:[]}; groups.push(g); }
+      g.rows.push(it.r);
+    });
+    groups.forEach(g=>{ g.label = g.bin ? (byName ? g.name+'/ '+g.bin : g.bin) : 'ไม่พบเลขบัตร'; });
+    return groups;
+  }
+  // groups -> rows with a bold total at the end of each group and 3 blank lines between groups
+  function emitGroups(groups, header){
+    const out = [];
+    groups = groups.filter(g=>g.rows.length);
+    groups.forEach((g,gi)=>{
+      if (gi > 0) for (let k=0;k<3;k++) out.push({kind:'gap', src:'', data:[null,null,null,null]});
+      if (header) out.push(Object.assign({}, header, {kind:'header'}));   // column titles at the top of every group
+      g.rows.forEach(r=>out.push(r));
+      const total = Math.round(g.rows.reduce((a,r)=>a+toAmount(r.data[3]),0)*100)/100;
+      out.push({kind:'sum', src:'', total, data:[null,null,'รวม '+g.label+' ('+g.rows.length+' รายการ)', total]});
+    });
+    return {out, groups: groups.length, names: groups.map(g=>g.label+' '+g.rows.length)};
+  }
+
+  // ---------- credit card report grouping ----------
+  const nat = (a,b)=> a.localeCompare(b, 'en', {numeric:true, sensitivity:'base'});
+  const afterSlash = v => { const s = isBlank(v) ? '' : String(v); const i = s.indexOf('/'); return i<0 ? s.trim() : s.slice(i+1).trim(); };
+  const beforeSlash = v => { const s = isBlank(v) ? '' : String(v); const i = s.indexOf('/'); return i<0 ? s.trim() : s.slice(0,i).trim(); };
+  // output order = array order; `check` = order in which rules are tested (QR before masked-card, since QR numbers also contain xxxxxx)
+  const isKplus = s=>/KPLUS/i.test(s), isPrompt = s=>/PROMPT?\s*PAY/i.test(s);
+  const CREDIT_GROUPS = [
+    {id:1, label:'AIS',          check:1, test:s=>/AIS/i.test(s)},
+    {id:2, label:'บัตรเครดิต',   check:5, test:s=>/\*{3,}|x{4,}/i.test(s)},
+    {id:3, label:'QR Payment',   check:2, test:s=>/QR\s*Payment/i.test(s)},
+    {id:4, label:'KPLUS&PROM',   check:3, test:s=>isKplus(s) || isPrompt(s), rank:s=>isKplus(s) ? 0 : 1},
+    {id:5, label:'แลกคะแนน',     check:4, test:s=>/แลก\s*คะแนน/.test(s)},
+  ];
+  const isZeroAmount = v => { if (isBlank(v)) return false;
+    const s = String(v).replace(/[,\s฿$()]/g,''); return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(s) && parseFloat(s) === 0; };
+  function groupCredit(rows){
+    const buckets = CREDIT_GROUPS.map(g=>({label:g.label, def:g, rank:g.rank, rows:[]}));
+    const order = buckets.slice().sort((x,y)=>x.def.check-y.def.check);
+    const other = {label:'อื่นๆ', rows:[]};
+    rows.forEach(r=>{
+      const c = isBlank(r.data[2]) ? '' : String(r.data[2]);
+      (order.find(b=>b.def.test(c)) || other).rows.push(r);
+    });
+    return buckets.concat([other]).filter(g=>g.rows.length);
+  }
+  // groups stay as before; inside each group: shift code, then card name before "/", then the number after "/"
+  const digitsAfter = v => afterSlash(v).replace(/\D/g,'');
+  function cmpInGroup(x,y){
+    const sx = x.shift ?? '', sy = y.shift ?? '';
+    if (sx !== sy) return sx==='' ? 1 : sy==='' ? -1 : nat(sx,sy);
+    const cx = String(x.data[2] ?? ''), cy = String(y.data[2] ?? '');
+    const n = cmpText(beforeSlash(cx), beforeSlash(cy)); if (n) return n;
+    const dx = digitsAfter(cx), dy = digitsAfter(cy);
+    if (dx !== dy){ const L = Math.max(dx.length, dy.length); const px = dx.padStart(L,'0'), py = dy.padStart(L,'0');
+      if (px !== py) return px < py ? -1 : 1; }
+    const a = nat(afterSlash(cx), afterSlash(cy)); if (a) return a;
+    const tx = timeKey(x.data[1]), ty = timeKey(y.data[1]);
+    return tx < ty ? -1 : tx > ty ? 1 : 0;
+  }
+  function makeGroups(rows, groupFn){
+    const groups = groupFn(rows);
+    groups.forEach(g=>g.rows.sort((x,y)=>{
+      if (g.rank){ const d = g.rank(String(x.data[2]??'')) - g.rank(String(y.data[2]??'')); if (d) return d; }  // KPLUS block before PROMPTPAY block
+      return cmpInGroup(x,y);
+    }));
+    return groups;
+  }
+  function sheetName(code, used){
+    let n = ('shift_' + String(code).trim()).replace(/[\\\/?*\[\]:]/g,'_').slice(0,31);
+    let base = n, i = 2; while (used.has(n.toLowerCase())) n = (base.slice(0,28)+'_'+i++);
+    used.add(n.toLowerCase()); return n;
+  }
+  // shift is the outermost level: shift 1 → its groups, shift 2 → its groups …
+  // one sheet per shift (shift_<code>) plus shift_all with every shift in order
+  function buildShiftSheets(rows, groupFn, header){
+    const m = new Map();
+    rows.forEach(r=>{ const k = r.shift ?? ''; if (!m.has(k)) m.set(k, []); m.get(k).push(r); });
+    const keys = [...m.keys()].sort((a,b)=> a==='' ? 1 : b==='' ? -1 : nat(a,b));
+    const used = new Set(['shift_all']);
+    const perShift = [], allGroups = [], names = [];
+    keys.forEach(k=>{
+      const groups = makeGroups(m.get(k), groupFn);
+      const code = k || 'ไม่ระบุ';
+      const em = emitGroups(groups.map(g=>Object.assign({}, g)), header);
+      perShift.push({name: sheetName(k || 'none', used), rows: em.out, shift: code, groups: em.groups});
+      groups.forEach(g=>allGroups.push(Object.assign({}, g, {label: 'กะ '+code+' · '+g.label})));
+      names.push('กะ '+code+': '+groups.map(g=>g.label+' '+g.rows.length).join(', '));
+    });
+    const all = emitGroups(allGroups, header);
+    const sheets = keys.length > 1 || (keys.length===1 && keys[0]!=='')
+      ? [{name:'shift_all', rows: all.out}].concat(perShift)
+      : [{name:'shift_all', rows: all.out}];
+    return {sheets, shifts: keys.length, groups: all.groups, names};
+  }
+
+  function colName(i){ return XLSX.utils.encode_col(i); }
+
+  // ---------- remove duplicate values inside each row only ----------
+  function dedupRows(rows){
+    let cells = 0, nrows = 0;
+    rows.forEach(r=>{ delete r.removed; delete r.shifted; });
+    if (!$('dedupOn').checked) return {cells, rows:nrows};
+    let a = +$('ddFrom').value, b = +$('ddTo').value;
+    if (a > b) [a,b] = [b,a];
+    const shift = $('ddShift').checked;
+    rows.forEach(row=>{
+      const seen = new Set(); const removed = new Set();
+      const bb = Math.min(b, row.data.length-1);
+      for (let c=a;c<=bb;c++){
+        const v = row.data[c];
+        if (v === null) continue;
+        const key = String(v).trim();
+        if (key === '') continue;
+        if (seen.has(key)) removed.add(c); else seen.add(key);
+      }
+      if (!removed.size) return;
+      cells += removed.size; nrows++;
+      if (shift){
+        const kept = [];
+        for (let c=a;c<=bb;c++) if (!removed.has(c)) kept.push(row.data[c]);
+        const shifted = new Set();
+        for (let c=a;c<=bb;c++){
+          const nv = kept.length ? kept.shift() : null;
+          if (nv !== row.data[c]) shifted.add(c);
+          row.data[c] = nv === undefined ? null : nv;
+        }
+        row.shifted = shifted;
+      } else {
+        removed.forEach(c=>{ row.data[c] = null; });
+        row.removed = removed;
+      }
+    });
+    return {cells, rows:nrows};
+  }
+
+  // ---------- UI ----------
+  function setFile(name, book, sample){
+    wb = book; fileName = name; isSample = sample; output = null;
+    $('fileLine').innerHTML = '';
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (sample ? ' sample' : '');
+    chip.textContent = sample ? 'ไฟล์ตัวอย่าง (ข้อมูลสมมติ) — เลือกไฟล์จริงของคุณด้านบน' : name;
+    $('fileLine').appendChild(chip);
+    const sel = $('sheetSel'); sel.innerHTML = '';
+    book.SheetNames.forEach(n=>{ const o=document.createElement('option'); o.value=o.textContent=n; sel.appendChild(o); });
+    sel.disabled = false; $('runBtn').disabled = false;
+    $('sheetHint').textContent = 'พบ ' + book.SheetNames.length + ' ชีต';
+    $('result').hidden = true; $('resultEmpty').hidden = false;
+  }
+
+  function run(){
+    const name = $('sheetSel').value;
+    const ws = wb && wb.Sheets[name];
+    if (!ws){ showMsg('bad','ไม่พบชีต: '+name); return; }
+    const det = detectType(ws); showType(det); lastType = det.type;
+    const proc = processSheet(ws, lastType ? XLSX.utils.decode_col(REPORT_TYPES[lastType].move[2]) : null);
+    lastJoined = proc.joined;
+    const scanned = proc.scanned;
+    const T = lastType ? REPORT_TYPES[lastType] : null;
+    // common step: drop blank rows, keep the rest packed together
+    const before = proc.rows.length;
+    let rows = proc.rows.filter(r=>r.data.some(v=>!isBlank(v)));
+    const blankRemoved = before - rows.length;
+    $('stBlank').textContent = blankRemoved.toLocaleString('th-TH');
+    // header row (first line)
+    const mode = $('hdrMode').value;
+    let header = null, hdrNote = '';
+    if (mode === 'src' && proc.header){ header = proc.header; hdrNote = 'ใช้แถว '+proc.header.src+' ของไฟล์ต้นทาง'; }
+    else if (mode !== 'none'){
+      header = {src:'', isHeader:true, data:Array.from({length:COLS},(_,c)=>colName(c))};
+      hdrNote = mode === 'src' ? 'ไม่พบแถวหัวตารางในไฟล์ จึงใช้ชื่อคอลัมน์แทน' : 'ใช้ชื่อคอลัมน์';
+    }
+    // type-specific: move columns into A–D
+    let colSrc = Array.from({length:COLS},(_,c)=>colName(c));
+    let dropped = 0, droppedZero = 0;
+    if (T){
+      const idx = T.move.map(l=>XLSX.utils.decode_col(l));
+      rows = rows.map(r=>applyMove(r, idx));
+      if (header) header = applyMove(header, idx);
+      colSrc = T.move.slice();
+      if (T.shiftCol){
+        rows.forEach(r=>{ r.data.push(r.shift ?? null); });
+        if (header) header.data.push(T.shiftCol);
+        colSrc.push('กะ');
+      }
+      if (T.dropZero){
+        const n0 = rows.length;
+        rows = rows.filter(r=>!isZeroAmount(r.data[3]));
+        droppedZero = n0 - rows.length;
+      }
+      if (T.dropIfAEmpty){
+        const n0 = rows.length;
+        rows = rows.filter(r=>!isBlank(r.data[0]));
+        dropped = n0 - rows.length;
+      }
+    }
+    lastColSrc = colSrc;
+    const dd = dedupRows(rows);
+    rows = rows.filter(r=>r.data.some(v=>!isBlank(v)));
+    if (T && T.headerA && header){ header = Object.assign({}, header, {data: header.data.slice()}); header.data[0] = T.headerA; }
+    lastHeader = header;
+    let grp = null, sheets = [{name:'Sheet1', rows: header ? [Object.assign({}, header, {kind:'header'})].concat(rows) : rows}];
+    if (T && T.group === 'fleet' && rows.length){ const byName = $('grpMode').value === 'name';
+      grp = buildShiftSheets(rows, rs=>groupFleet(rs, byName), header); sheets = grp.sheets; }
+    if (T && T.group === 'credit' && rows.length){ grp = buildShiftSheets(rows, groupCredit, header); sheets = grp.sheets; }
+    lastDataRows = rows.length;
+    lastShifts = proc.shifts;
+    renderPipe(rows.length, blankRemoved, hdrNote, dd, T, dropped, grp, droppedZero);
+    $('stCols').textContent = colSrc.length;
+    $('stDup').textContent = dd.cells.toLocaleString('th-TH');
+    $('stDupRows').textContent = dd.rows.toLocaleString('th-TH');
+    $('resultEmpty').hidden = true; $('result').hidden = false;
+    $('stMatch').textContent = rows.length.toLocaleString('th-TH');
+    $('stScan').textContent = scanned.toLocaleString('th-TH');
+    if (!rows.length){
+      output = null; $('dlBtn').disabled = true; $('outName').textContent = '';
+      showMsg('warn','ไม่พบแถวที่คอลัมน์ D เป็นตัวเลข ลองตรวจว่าเลือกชีตถูกต้อง');
+      $('tbl').innerHTML = ''; $('tblNote').textContent = ''; return;
+    }
+    output = sheets; curSheet = 0;
+    const n = new Date();
+    outFile = 'Cleaned_Upload_' + n.getFullYear()+pad(n.getMonth()+1)+pad(n.getDate())+'_'+pad(n.getHours())+pad(n.getMinutes())+pad(n.getSeconds()) + '.xlsx';
+    $('outName').textContent = outFile;
+    $('dlBtn').disabled = false;
+    if (isSample) showMsg('ok','นี่คือผลจากไฟล์ตัวอย่าง เลือกไฟล์จริงในขั้นที่ 1 เพื่อใช้งาน');
+    else if (!lastType) showMsg('warn','ประมวลผลแล้ว แต่ไม่พบหัวรายงานในชีตนี้ ตรวจว่าเลือกชีตถูกต้องก่อนดาวน์โหลด');
+    else showMsg('ok','ประมวลผล '+REPORT_TYPES[lastType].label+' เสร็จแล้ว กดดาวน์โหลดเพื่อบันทึกไฟล์');
+    renderTabs(); renderTable(sheets[0].rows, null, rows.length);
+  }
+
+  function renderTabs(){
+    const box = $('sheetTabs'); box.innerHTML = '';
+    box.hidden = !output || output.length < 2;
+    (output||[]).forEach((sh,i)=>{
+      const b = document.createElement('button'); b.type='button'; b.className = 'tab' + (i===curSheet ? ' on' : '');
+      b.textContent = sh.name; b.setAttribute('aria-pressed', i===curSheet ? 'true' : 'false');
+      b.addEventListener('click', ()=>{ curSheet = i; renderTabs(); renderTable(output[i].rows, null, lastDataRows); });
+      box.appendChild(b);
+    });
+  }
+
+  function renderPipe(nRows, blank, hdrNote, dd, T, dropped, grp, droppedZero){
+    const ol = $('pipe'); ol.innerHTML = '';
+    const add = (t, cls)=>{ const li=document.createElement('li'); li.textContent=t; if(cls) li.className=cls; ol.appendChild(li); };
+    add('คัดแถวที่คอลัมน์ D เป็นตัวเลข แล้วดึงคอลัมน์ D–AQ มาเป็นตาราง A–AN');
+    add('ลบแถวว่าง '+blank.toLocaleString('th-TH')+' แถว และให้แถวที่มีข้อมูลเรียงชิดกัน');
+    add(hdrNote ? 'แทรกหัวคอลัมน์เป็นแถวแรก: '+hdrNote : 'ไม่ใส่หัวคอลัมน์');
+    if (T){
+      add(T.label+': ย้าย '+T.move.map((l,i)=>l+' → '+OUT_LETTERS[i]).join(', ')+' เหลือ 4 คอลัมน์');
+      if (T.dropIfAEmpty) add('ลบแถวที่คอลัมน์ A ว่าง (ค่าที่มาจาก E) '+dropped.toLocaleString('th-TH')+' แถว');
+      if (T.dropZero) add('ลบรายการที่ยอดเงินคอลัมน์ D เป็น 0.00 หรือ -0.00 '+droppedZero.toLocaleString('th-TH')+' แถว');
+      if (lastJoined.length){
+        const seen = new Set(); const uniq = lastJoined.filter(j=>!seen.has(j.from) && seen.add(j.from));
+        add('ต่อหมายเลขบัตรที่ถูกตัดข้ามหน้า '+uniq.length+' รายการ: '+uniq.map(j=>'แถว '+j.row+' + แถว '+j.from+' → '+j.text).join(', '));
+      }
+      if (T.shiftCol){
+        if (lastShifts.length) add('เพิ่มคอลัมน์ E “รหัสกะ”: พบ '+lastShifts.length+' กะ ('+lastShifts.map(x=>x.code+' เริ่มแถว '+x.row).join(', ')+')');
+        else add('เพิ่มคอลัมน์ E “รหัสกะ” แต่ไม่พบคำว่า “รหัสกะ” ในชีตนี้ คอลัมน์ E จึงว่าง', 'todo');
+      }
+      if (T.headerA) add('ตั้งชื่อหัวคอลัมน์ A เป็น “'+T.headerA+'”');
+    } else {
+      add('ไม่รู้ประเภทรายงาน จึงไม่ได้ย้ายคอลัมน์ ส่งออกครบ 40 คอลัมน์', 'todo');
+    }
+    add($('dedupOn').checked ? 'ลบค่าซ้ำในแถวเดียวกัน '+dd.cells.toLocaleString('th-TH')+' ช่อง' : 'ไม่ลบค่าซ้ำในแถว');
+    if (grp){
+      add('แยกตามรหัสกะก่อน ('+grp.shifts+' กะ) แล้วแบ่งกลุ่มตามหมายเลขบัตรภายในแต่ละกะ รวม '+grp.groups+' กลุ่ม — '+grp.names.join(' | '));
+      add('ในกลุ่มเรียงตามชื่อบัตรหน้า / → เลขหลัง / ทุกกลุ่มมีหัวคอลัมน์ สรุปยอดเงินตัวหนาท้ายกลุ่ม เว้น 3 บรรทัดระหว่างกลุ่ม');
+      add('ไฟล์ผลลัพธ์มี '+grp.sheets.length+' ชีต: '+grp.sheets.map(x=>x.name).join(', '));
+    }
+    add('เหลือแถวข้อมูล '+nRows.toLocaleString('th-TH')+' แถว');
+  }
+
+  function renderTable(rows, header, nData){
+    const LIMIT = 200;
+    const t = $('tbl'); t.innerHTML = '';
+    const thead = t.createTHead(); const hr = thead.insertRow();
+    const th0 = document.createElement('th'); th0.textContent = 'แถวเดิม'; hr.appendChild(th0);
+    const moved = lastColSrc.length !== COLS;
+    lastColSrc.forEach((src,c)=>{ const th=document.createElement('th');
+      th.textContent = src==='กะ' ? colName(c)+' รหัสกะ' : (moved ? colName(c)+' ← '+src : colName(c));
+      th.title = src==='กะ' ? 'จากคำว่า รหัสกะ ในไฟล์ต้นทาง' : 'ต้นทางคอลัมน์ '+srcLetter(src); hr.appendChild(th); });
+    const tb = t.createTBody();
+    if (header){
+      const tr = tb.insertRow(); tr.className = 'hdr';
+      const td0 = tr.insertCell(); td0.textContent = 'หัว';
+      header.data.forEach(v=>{ const td=tr.insertCell(); td.textContent = v===null?'':v; });
+    }
+    rows.slice(0,LIMIT).forEach(row=>{
+      const tr = tb.insertRow();
+      if (row.kind === 'header'){ tr.className='hdr'; tr.insertCell().textContent='หัว';
+        row.data.forEach(v=>{ tr.insertCell().textContent = v===null?'':v; }); return; }
+      if (row.kind === 'gap'){ tr.className='gap'; for (let i=0;i<=lastColSrc.length;i++) tr.insertCell(); return; }
+      if (row.kind === 'sum'){ tr.className='sum';
+        tr.insertCell().textContent = '';
+        row.data.forEach((v,i)=>{ tr.insertCell().textContent = i===3 ? v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : (v ?? ''); });
+        for (let i=row.data.length;i<lastColSrc.length;i++) tr.insertCell();
+        return; }
+      const td0 = tr.insertCell(); td0.textContent = row.src;
+      row.data.forEach((v,i)=>{ const td=tr.insertCell(); td.textContent = v===null?'':v;
+        if(i===0 && !moved) td.className='d';
+        if(row.removed && row.removed.has(i)) td.className = 'rm';
+        else if(row.shifted && row.shifted.has(i)) td.className = 'sh'; });
+    });
+    $('tblNote').textContent = rows.length > LIMIT ? 'แสดงตัวอย่าง '+LIMIT+' บรรทัดแรก ไฟล์ที่ดาวน์โหลดมีข้อมูลครบทั้ง '+nData.toLocaleString('th-TH')+' แถว' : 'คอลัมน์แรก “แถวเดิม” แสดงเลขแถวในไฟล์ต้นทาง ไม่อยู่ในไฟล์ผลลัพธ์';
+  }
+
+  // hand-built xlsx so subtotal rows can be bold; text cells keep the "@" format
+  function xmlEsc(v){ return String(v).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function sheetXml(rows){
+    const NC = Math.max(1, ...rows.map(r=>r.data.length));
+    const widths = new Array(NC).fill(6);
+    const meas = v=>{ let w=0; for (const ch of String(v)) w += ch.charCodeAt(0) > 255 ? 1.3 : 1; return w; };
+    let sheetRows = '';
+    rows.forEach((row,ri)=>{
+      const rn = ri+1; let cells = '';
+      row.data.forEach((v,c)=>{
+        if (v===null || v===undefined || v==='') return;
+        const ref = colName(c)+rn;
+        if (row.kind === 'sum' && typeof v === 'number'){
+          cells += '<c r="'+ref+'" s="3"><v>'+v+'</v></c>';
+          v = v.toFixed(2);
+        } else {
+          const st = row.kind === 'sum' ? 2 : 1;
+          cells += '<c r="'+ref+'" s="'+st+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(v)+'</t></is></c>';
+        }
+        const w = meas(v); if (w > widths[c]) widths[c] = w;
+      });
+      sheetRows += '<row r="'+rn+'">'+cells+'</row>';
+    });
+    const cols = '<cols>'+widths.map((w,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+Math.min(Math.ceil(w)+2,60)+'" customWidth="1"/>').join('')+'</cols>';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+cols+'<sheetData>'+sheetRows+'</sheetData></worksheet>';
+  }
+  async function buildXlsx(sheets){
+    const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      +'<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts>'
+      +'<fonts count="2"><font><sz val="11"/><name val="Tahoma"/></font><font><b/><sz val="11"/><name val="Tahoma"/></font></fonts>'
+      +'<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+      +'<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+      +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+      +'<cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+      +'<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+      +'<xf numFmtId="49" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>'
+      +'<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/></cellXfs>'
+      +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+sheets.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+    zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    zip.file('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((sh,i)=>'<sheet name="'+xmlEsc(sh.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join('')+'</sheets></workbook>');
+    zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('')+'<Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    zip.file('xl/styles.xml', styles);
+    sheets.forEach((sh,i)=>zip.file('xl/worksheets/sheet'+(i+1)+'.xml', sheetXml(sh.rows)));
+    return zip.generateAsync({type:'arraybuffer', compression:'DEFLATE'});
+  }
+
+  async function download(){
+    if (!output) return;
+    const buf = await buildXlsx(output);
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    let dl = null;
+    try { dl = window.claude && await window.claude.use('downloads'); } catch(e){ dl = null; }
+    if (dl){
+      try { await dl.save({filename: outFile, data: blob});
+        showMsg('ok','บันทึกไฟล์แล้ว: '+outFile+' ('+lastDataRows.toLocaleString('th-TH')+' แถวข้อมูล'+(lastHeader?' + หัวคอลัมน์':'')+')');
+      } catch(e){
+        if (e && e.code === 'declined') showMsg('warn','ยกเลิกการบันทึกไฟล์');
+        else if (e && e.code === 'rate_limited') showMsg('warn','มีหน้าต่างยืนยันเปิดอยู่แล้ว รอสักครู่แล้วลองอีกครั้ง');
+        else showMsg('bad','บันทึกไฟล์ไม่สำเร็จในหน้านี้ ('+(e&&e.code||'error')+')');
+      }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = outFile;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  }
+
+  function showMsg(kind, text){
+    const m = $('resMsg'); m.className = 'msg '+kind; m.textContent = text;
+  }
+
+  function readFile(f){
+    if (!f) return;
+    if (!/\.(xls|xlsx|xlsb|xlsm)$/i.test(f.name)){ $('fileLine').innerHTML='<span class="msg bad">รองรับเฉพาะไฟล์ .xls .xlsx .xlsb .xlsm</span>'; return; }
+    const r = new FileReader();
+    r.onload = e=>{
+      try {
+        const book = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true, cellNF:true});
+        setFile(f.name, book, false);
+        run();
+      } catch(err){
+        $('fileLine').innerHTML = '';
+        const s=document.createElement('span'); s.className='msg bad';
+        s.textContent='เปิดไฟล์ไม่ได้: '+(err.message||err)+' — ถ้าไฟล์มีรหัสผ่าน ให้ปลดรหัสก่อน';
+        $('fileLine').appendChild(s);
+      }
+    };
+    r.readAsArrayBuffer(f);
+  }
+
+  // ---------- sample workbook (fictional data) ----------
+  function sampleBook(){
+    // fictional data; positions use the cleaned-table letters (A = source D)
+    const at = (obj)=>{ const row = new Array(START_COL + COLS).fill(null);
+      for (const k in obj) row[START_COL + XLSX.utils.decode_col(k)] = obj[k]; return row; };
+    const credit = [
+      [null,null,null,'รายงานบัตรเครดิต (ตัวอย่าง ข้อมูลสมมติ)'],
+      at({L:'รหัสกะ :'}),
+      at({N:'7514'}),
+      at({A:'ลำดับ',E:'เลขที่ใบกำกับ',I:'วันเวลา',T:'หมายเลขบัตร',AL:'ยอดเงิน'}),
+      at({A:1,  E:'C0001',I:'01/10/2026 08:10',T:'VISA/ 411111******1023',AL:1250}),
+      at({A:'2',E:'C0002',I:'01/10/2026 08:40',T:'KPLUS/ 0098812345',AL:389.5}),
+      at({A:"'3",E:'C0003',I:'01/10/2026 09:05',T:'MASTER/ 550000******8841',AL:4200}),
+      at({A:4,  E:'C0004',I:'01/10/2026 09:30',T:'QR Payment/ 6213xxxxxx4471',AL:150}),
+      at({A:5,  E:'C0005',I:'01/10/2026 10:00',T:'PROMPTPAY/EDC 0000017',AL:620}),
+      at({A:'รวมย่อย',AL:6609.5}),
+      at({L:'รหัสกะ :',N:'7515'}),
+      at({A:'\u00A06 ',E:'C0006',I:'01/10/2026 10:15',T:'VISA/ 400000******3311',AL:0}),
+      at({A:7,  E:'C0007',I:'01/10/2026 10:20',T:'KPLUS/ 0012000001',AL:760}),
+      at({A:8,  E:'C0008',I:'01/10/2026 11:00',T:'แลกคะแนน BCP/ 220047',AL:100}),
+      at({A:9,  E:'C0009',I:'01/10/2026 11:45',T:'JCB/ 352800******0077',AL:15900}),
+      at({A:10, E:'C0010',I:'01/10/2026 12:30',T:'PROMPTPAY/EDC 0000009',AL:'-0.00'}),
+      at({A:12, E:'C0012',I:'01/10/2026 13:40',T:'AIS/ 0812345678',AL:300}),
+      at({A:13, E:'C0013',I:'01/10/2026 14:00',T:'MASTER/ 520000XXXXXX1188',AL:990}),
+      at({A:11, E:'C0011',I:'01/10/2026 13:10',T:'GIFT VOUCHER 0091',AL:500}),
+      at({A:'รวมทั้งสิ้น',AL:23869.5}),
+    ];
+    const fleet = [
+      [null,null,null,'รายงานบัตรฟลีทการ์ด (ตัวอย่าง ข้อมูลสมมติ)'],
+      at({M:'รหัสกะ :'}),
+      at({O:'7601'}),
+      at({A:'ลำดับ',E:'เลขที่ใบกำกับ',K:'วันเวลา',U:'หมายเลขบัตร',AN:'ยอดเงิน'}),
+      at({A:1,E:'T0001',K:'01/10/2026 09:15',U:'PTTSynergyCard/ 6000001264206009',AN:1500}),
+      at({A:2,E:'T0002',K:'01/10/2026 08:02',U:'BCP Fleet Card/ 6000005057487809',AN:800}),
+      at({A:3,E:null,   K:'01/10/2026 10:40',U:'BCP Fleet Card/ 6000005057487809',AN:300}),
+      at({M:'รหัสกะ :',O:'7601'}),
+      at({A:4,E:'T0004',K:'01/10/2026 11:20',U:'KTB FLEET CARD/ 5043677082055784',AN:2100}),
+      at({A:5,E:'T0005',K:'01/10/2026 13:05',U:'BCP-FLEET/ 0004720050384162',AN:950.5}),
+      at({M:'รหัสกะ :',O:'7602'}),
+      at({A:6,E:'T0006',K:'01/10/2026 17:45',U:'BCP-FLEET/ 0004720050384999',AN:1200}),
+      at({A:7,E:'T0007',K:'01/10/2026 16:30',U:'BCP Fleet Card/ 6000005057480001',AN:640}),
+      at({A:'รวม',AN:7490.5}),
+    ];
+    const b = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(b, XLSX.utils.aoa_to_sheet(credit), 'ตัวอย่างบัตรเครดิต');
+    XLSX.utils.book_append_sheet(b, XLSX.utils.aoa_to_sheet(fleet), 'ตัวอย่างฟลีทการ์ด');
+    return b;
+  }
+
+  // ---------- wire up ----------
+  const drop = $('drop'), input = $('fileInput');
+  drop.addEventListener('click', ()=>input.click());
+  drop.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); input.click(); } });
+  input.addEventListener('change', ()=>{ readFile(input.files[0]); input.value=''; });
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e=>readFile(e.dataTransfer.files[0]));
+  $('runBtn').addEventListener('click', run);
+  $('sheetSel').addEventListener('change', ()=>{ $('result').hidden=true; $('resultEmpty').hidden=false; });
+  $('dlBtn').addEventListener('click', download);
+  (function initDedup(){
+    const f=$('ddFrom'), t=$('ddTo');
+    for (let c=0;c<COLS;c++){
+      [f,t].forEach(sel=>{ const o=document.createElement('option'); o.value=c; o.textContent=colName(c); sel.appendChild(o); });
+    }
+    f.value = 0; t.value = COLS-1;   // default: every column of the final table
+    const sync = ()=>{ $('dedupBox').classList.toggle('off', !$('dedupOn').checked); };
+    const rerun = ()=>{ sync(); if (wb && !$('result').hidden) run(); };
+    ['dedupOn','ddFrom','ddTo','ddBlank','ddShift','hdrMode','grpMode'].forEach(id=>$(id).addEventListener('change', rerun));
+    sync();
+  })();
+
+  if (window.XLSX){ setFile('sample', sampleBook(), true); run(); }
+  else { $('fileLine').innerHTML = '<span class="msg bad">โหลดไลบรารีอ่าน Excel ไม่สำเร็จ ลองรีเฟรชหน้า</span>'; }
+})();
+</script>
+
+</body>
+</html>
