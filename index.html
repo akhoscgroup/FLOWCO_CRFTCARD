@@ -330,7 +330,11 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
     if (cardIdx != null){
       const dataRows = new Map(rows.map(x=>[x.src-1, x]));
       const cardCol = START_COL + cardIdx;
-      const incomplete = v => !isBlank(v) && /\/\s*$/.test(String(v)) ;
+      // incomplete = ends with "/" (fleet: "KTB PTT Co-brand/ ") or has no digits at all (credit: "แลกคะแนน ")
+      const incomplete = v => !isBlank(v) && (/\/\s*$/.test(String(v)) || !/\d/.test(String(v)));
+      const rowCount = new Map();
+      for (const k in ws){ if (k[0]==='!') continue; const c = ws[k]; if (!c || isBlank(c.v)) continue;
+        const r0 = XLSX.utils.decode_cell(k).r; rowCount.set(r0, (rowCount.get(r0)||0)+1); }
       rows.forEach(rec=>{
         const card = rec.data[cardIdx];
         if (!incomplete(card)) return;
@@ -340,7 +344,8 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
           // only a value that really starts in the card column (no merge fill from page headers such as R177:AA178)
           const raw = ws[XLSX.utils.encode_cell({r:rr, c:cardCol})];
           const v = raw ? String(cellToOutput(raw) ?? '').trim() : '';
-          if (!v || !/^[\dXx*][\dXx*\s-]*$/.test(v)) continue;
+          // the loose piece sits alone on its row (X193 / W6787) and carries digits, e.g. "5043677012162791" or "BCP/7896610018267409"
+          if (!v || /หมายเลขบัตร/.test(v) || !/\d/.test(v) || rowCount.get(rr) !== 1) continue;
           rec.data[cardIdx] = String(card).replace(/\s+$/,'') + ' ' + v;
           rec.joinedFrom = rr+1;
           joined.push({row: rec.src, from: rr+1, text: rec.data[cardIdx]});
