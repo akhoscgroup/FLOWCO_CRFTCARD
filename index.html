@@ -33,6 +33,18 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size
 header{display:grid;gap:4px}
 h1{font-size:1.6rem;line-height:1.25;margin:0;text-wrap:balance;font-weight:700}
 .sub{color:var(--muted);margin:0;max-width:65ch}
+.head-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.head-row .lock{margin-top:0}
+.ver-btn{font:inherit;font-size:.85rem;font-weight:500;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.ver-btn b{font-family:var(--font-mono);color:var(--accent)}
+.ver-btn[aria-expanded="true"]{border-color:var(--accent)}
+.changelog{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px;display:grid;gap:12px;margin-top:8px}
+.changelog .rel{display:grid;gap:4px}
+.changelog .rel-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.changelog .rel-h b{font-family:var(--font-mono);color:var(--accent)}
+.changelog .rel-h span{color:var(--muted);font-size:.85rem;font-variant-numeric:tabular-nums}
+.changelog ul{margin:0;padding-left:1.2em;font-size:.9rem;display:grid;gap:2px}
+.changelog .rel.latest .rel-h::after{content:"ล่าสุด";font-size:.75rem;background:var(--accent-soft);color:var(--accent);padding:1px 8px;border-radius:999px}
 .lock{display:inline-flex;gap:8px;align-items:center;font-size:.85rem;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:999px;width:fit-content;margin-top:6px}
 .step{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:12px;min-width:0}
 .step-h{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
@@ -107,7 +119,11 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
   <header>
     <h1>CR Card Cleaner</h1>
     <p class="sub">ดึงเฉพาะแถวที่คอลัมน์ D เป็นตัวเลข ตรวจประเภทรายงาน แล้วจัดคอลัมน์ให้ตามประเภท ส่งออกเป็นไฟล์ที่ทุกช่องเป็นข้อความ เลข 0 นำหน้าจึงไม่หาย</p>
-    <span class="lock">ไฟล์ประมวลผลในเบราว์เซอร์นี้เท่านั้น ไม่มีการอัปโหลดไปที่ใด</span>
+    <div class="head-row">
+      <span class="lock">ไฟล์ประมวลผลในเบราว์เซอร์นี้เท่านั้น ไม่มีการอัปโหลดไปที่ใด</span>
+      <button type="button" class="ver-btn" id="verBtn" aria-expanded="false" aria-controls="changelog">เวอร์ชัน <b id="verNo"></b> · อ่านบันทึกการเปลี่ยนแปลง</button>
+    </div>
+    <section class="changelog" id="changelog" hidden aria-label="บันทึกการเปลี่ยนแปลง"></section>
   </header>
 
   <section class="step" aria-labelledby="h1s">
@@ -725,6 +741,7 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
       add('ไฟล์ผลลัพธ์มี '+grp.sheets.length+' ชีต: '+grp.sheets.map(x=>x.name).join(', '));
     }
     add('เหลือแถวข้อมูล '+nRows.toLocaleString('th-TH')+' แถว');
+    add('ประมวลผลด้วยโปรแกรมเวอร์ชัน v'+APP_VERSION);
   }
 
   function renderTable(rows, header, nData){
@@ -902,6 +919,49 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
     XLSX.utils.book_append_sheet(b, XLSX.utils.aoa_to_sheet(fleet), 'ตัวอย่างฟลีทการ์ด');
     return b;
   }
+
+  // ---------- version + change log (newest first; bump APP_VERSION on every release) ----------
+  const CHANGELOG = [
+    {v:'1.7.0', d:'29/10/2026', items:[
+      'บัตรเครดิต: รายการในกลุ่มบัตรเครดิตที่เลขที่ใบเสร็จเป็นตัวเลขล้วน (เช่น 01261000265) แยกไปกลุ่มใหม่ “ลูกหนี้ชำระเงิน” ต่อจากกลุ่มบัตรเครดิต',
+      'เพิ่มเลขเวอร์ชันและปุ่มอ่านบันทึกการเปลี่ยนแปลงที่หัวหน้าเว็บ']},
+    {v:'1.6.0', d:'29/10/2026', items:[
+      'บัตรเครดิต: หมายเลขบัตรที่มี “BCP GreenMiles/” ไปอยู่กลุ่ม KPLUS&PROM ต่อท้าย PROMPTPAY (เดิมตกไปกลุ่มอื่นๆ)']},
+    {v:'1.5.1', d:'19/10/2026', items:[
+      'บัตรเครดิต: ต่อหมายเลขบัตรที่ถูกตัดข้ามหน้าแบบไม่มี / เช่น “แลกคะแนน ” + “BCP/7896…” (W6764 + W6787) และ “BCP ” + “GreenMiles/…”']},
+    {v:'1.5.0', d:'12/10/2026', items:[
+      'ฟลีทการ์ด: ต่อหมายเลขบัตรที่ถูกตัดข้ามหน้า เช่น “KTB PTT Co-brand/ ” + “5043677012162791” (X168 + X193)',
+      'ไม่หยิบค่าจากหัวกระดาษที่ merge คลุมคอลัมน์หมายเลขบัตรมาต่อผิด']},
+    {v:'1.4.0', d:'08/10/2026', items:[
+      'รหัสกะเป็นระดับใหญ่สุด: กะ → กลุ่ม → รายการ',
+      'ไฟล์ผลลัพธ์แยกชีต shift_all และ shift_<รหัสกะ> พร้อมแท็บดูแต่ละชีตบนหน้าเว็บ']},
+    {v:'1.3.0', d:'08/10/2026', items:[
+      'เพิ่มคอลัมน์ E “รหัสกะ” (ฟลีท P→R, เครดิต O→Q)',
+      'ทุกกลุ่มมีหัวคอลัมน์ ในกลุ่มเรียงตามชื่อบัตรหน้า / → เลขหลัง /',
+      'กลุ่มบัตรเครดิตชุดใหม่: AIS, บัตรเครดิต, QR Payment, KPLUS&PROM, แลกคะแนน, อื่นๆ']},
+    {v:'1.2.0', d:'07/10/2026', items:[
+      'บัตรเครดิต: ลบรายการยอด 0.00 / -0.00 ย้ายคอลัมน์ E,I,T,AL → A–D และแบ่งกลุ่มตามหมายเลขบัตร']},
+    {v:'1.1.0', d:'07/10/2026', items:[
+      'ฟลีทการ์ด: ย้ายคอลัมน์ E,K,U,AN → A–D ลบแถวที่ A ว่าง หัวคอลัมน์ A “ใบกำกับภาษีอย่างย่อ”',
+      'แบ่งกลุ่มตามเลข 4 หลักหลัง / สรุปยอดตัวหนาท้ายกลุ่ม เว้น 3 บรรทัด']},
+    {v:'1.0.0', d:'07/10/2026', items:[
+      'แปลงมาโคร data_crcard_tool เป็นหน้าเว็บ: คัดแถวที่ D เป็นตัวเลข ดึงคอลัมน์ D–AQ ส่งออก .xlsx แบบข้อความ',
+      'ตรวจประเภทรายงาน ลบแถวว่าง แทรกหัวคอลัมน์ ลบค่าซ้ำในแถว']},
+  ];
+  const APP_VERSION = CHANGELOG[0].v;
+  (function initChangelog(){
+    $('verNo').textContent = 'v'+APP_VERSION;
+    const box = $('changelog');
+    CHANGELOG.forEach((r,i)=>{
+      const sec = document.createElement('div'); sec.className = 'rel' + (i===0 ? ' latest' : '');
+      const h = document.createElement('div'); h.className = 'rel-h';
+      const b = document.createElement('b'); b.textContent = 'v'+r.v; const d = document.createElement('span'); d.textContent = r.d;
+      h.appendChild(b); h.appendChild(d); sec.appendChild(h);
+      const ul = document.createElement('ul'); r.items.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; ul.appendChild(li); });
+      sec.appendChild(ul); box.appendChild(sec);
+    });
+    $('verBtn').addEventListener('click', ()=>{ const open = box.hidden; box.hidden = !open; $('verBtn').setAttribute('aria-expanded', String(open)); });
+  })();
 
   // ---------- wire up ----------
   const drop = $('drop'), input = $('fileInput');

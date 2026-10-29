@@ -4,6 +4,8 @@
 
 พัฒนาต่อจากมาโคร Excel เดิม (`data_crcard_tool.xltm`) — โค้ดต้นฉบับเก็บไว้ที่ `docs/original-macro-Module1.bas`
 
+**เวอร์ชันปัจจุบัน: v1.7.0** — ดูรายละเอียดทุกเวอร์ชันใน [CHANGELOG.md](CHANGELOG.md) หรือกดปุ่ม "อ่านบันทึกการเปลี่ยนแปลง" บนหน้าเว็บ
+
 ## วิธีใช้
 
 1. เปิด `index.html` ด้วย Chrome หรือ Edge (ดับเบิลคลิกได้เลย หรือเปิดผ่าน GitHub Pages)
