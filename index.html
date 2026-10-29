@@ -33,11 +33,9 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size
 header{display:grid;gap:4px}
 h1{font-size:1.6rem;line-height:1.25;margin:0;text-wrap:balance;font-weight:700}
 .sub{color:var(--muted);margin:0;max-width:65ch}
-.head-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
-.head-row .lock{margin-top:0}
-.ver-btn{font:inherit;font-size:.85rem;font-weight:500;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
-.ver-btn b{font-family:var(--font-mono);color:var(--accent)}
-.ver-btn[aria-expanded="true"]{border-color:var(--accent)}
+.foot{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:baseline;color:var(--muted);font-size:.82rem;padding-top:4px}
+.foot #verNo{font-family:var(--font-mono)}
+.linkish{font:inherit;background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .changelog{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px;display:grid;gap:12px;margin-top:8px}
 .changelog .rel{display:grid;gap:4px}
 .changelog .rel-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
@@ -119,11 +117,7 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
   <header>
     <h1>CR Card Cleaner</h1>
     <p class="sub">ดึงเฉพาะแถวที่คอลัมน์ D เป็นตัวเลข ตรวจประเภทรายงาน แล้วจัดคอลัมน์ให้ตามประเภท ส่งออกเป็นไฟล์ที่ทุกช่องเป็นข้อความ เลข 0 นำหน้าจึงไม่หาย</p>
-    <div class="head-row">
-      <span class="lock">ไฟล์ประมวลผลในเบราว์เซอร์นี้เท่านั้น ไม่มีการอัปโหลดไปที่ใด</span>
-      <button type="button" class="ver-btn" id="verBtn" aria-expanded="false" aria-controls="changelog">เวอร์ชัน <b id="verNo"></b> · อ่านบันทึกการเปลี่ยนแปลง</button>
-    </div>
-    <section class="changelog" id="changelog" hidden aria-label="บันทึกการเปลี่ยนแปลง"></section>
+    <span class="lock">ไฟล์ประมวลผลในเบราว์เซอร์นี้เท่านั้น ไม่มีการอัปโหลดไปที่ใด</span>
   </header>
 
   <section class="step" aria-labelledby="h1s">
@@ -225,6 +219,11 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
       <li>ไฟล์ผลลัพธ์ตั้งชื่อ <code>Cleaned_Upload_YYYYMMDD_HHMMSS.xlsx</code> ทุกเซลล์ฟอร์แมตข้อความ (@) จะถูกบันทึกในโฟลเดอร์ดาวน์โหลด แทนโฟลเดอร์เดียวกับไฟล์ต้นทาง</li>
     </ul>
   </section>
+  <footer class="foot">
+    <span>เวอร์ชัน <span id="verNo"></span></span>
+    <button type="button" class="linkish" id="verBtn" aria-expanded="false" aria-controls="changelog">อ่านบันทึกการเปลี่ยนแปลง</button>
+  </footer>
+  <section class="changelog" id="changelog" hidden aria-label="บันทึกการเปลี่ยนแปลง"></section>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -922,9 +921,11 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
 
   // ---------- version + change log (newest first; bump APP_VERSION on every release) ----------
   const CHANGELOG = [
+    {v:'1.7.1', d:'29/10/2026', items:[
+      'ย้ายเลขเวอร์ชันและลิงก์ “อ่านบันทึกการเปลี่ยนแปลง” ไปไว้ท้ายหน้าเว็บ']},
     {v:'1.7.0', d:'29/10/2026', items:[
       'บัตรเครดิต: รายการในกลุ่มบัตรเครดิตที่เลขที่ใบเสร็จเป็นตัวเลขล้วน (เช่น 01261000265) แยกไปกลุ่มใหม่ “ลูกหนี้ชำระเงิน” ต่อจากกลุ่มบัตรเครดิต',
-      'เพิ่มเลขเวอร์ชันและปุ่มอ่านบันทึกการเปลี่ยนแปลงที่หัวหน้าเว็บ']},
+      'เพิ่มเลขเวอร์ชันและบันทึกการเปลี่ยนแปลง']},
     {v:'1.6.0', d:'29/10/2026', items:[
       'บัตรเครดิต: หมายเลขบัตรที่มี “BCP GreenMiles/” ไปอยู่กลุ่ม KPLUS&PROM ต่อท้าย PROMPTPAY (เดิมตกไปกลุ่มอื่นๆ)']},
     {v:'1.5.1', d:'19/10/2026', items:[
