@@ -199,7 +199,7 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
       <li>เซลล์ที่ผสาน (merge) ใช้ค่าของเซลล์มุมซ้ายบน</li>
       <li>ขั้นตอนร่วม: ลบแถวว่าง ให้แถวข้อมูลชิดกัน แล้วแทรกหัวคอลัมน์เป็นแถวแรก หัวคอลัมน์หาจากแถวที่อยู่เหนือแถวข้อมูลแรก และมีข้อความอย่างน้อย 2 ช่อง</li>
       <li>รายงานบัตรเครดิต: ย้าย E→A, I→B, T→C, AL→D รายงานบัตรฟลีทการ์ด: ย้าย E→A, K→B, U→C, AN→D แล้วลบแถวที่ A ว่าง ตัวอักษรคอลัมน์นับจากตารางที่ตัดแล้ว (A = คอลัมน์ D ของไฟล์ต้นทาง ... AN = AQ)</li>
-      <li>รายงานบัตรเครดิต: ลบรายการที่ยอดเงิน D เป็น 0.00 หรือ -0.00 แล้วแบ่งกลุ่มจากหมายเลขบัตรคอลัมน์ C: 1) มีคำว่า AIS 2) บัตรเครดิต (เลขบัตรมี XXXXXX หรือ ******) 3) QR Payment 4) KPLUS&amp;PROM รวม KPLUS ไว้ก่อน ต่อด้วย PROMPTPAY แล้วต่อด้วย BCP GreenMiles/ 5) แลกคะแนน 6) อื่นๆ ท้ายกลุ่มมียอดรวมตัวหนา เว้น 3 บรรทัดระหว่างกลุ่ม</li>
+      <li>รายงานบัตรเครดิต: ลบรายการที่ยอดเงิน D เป็น 0.00 หรือ -0.00 แล้วแบ่งกลุ่มจากหมายเลขบัตรคอลัมน์ C: 1) มีคำว่า AIS 2) บัตรเครดิต (เลขบัตรมี XXXXXX หรือ ******) ถ้าเลขที่ใบเสร็จเป็นตัวเลขล้วน แยกไปกลุ่ม ลูกหนี้ชำระเงิน ต่อจากกลุ่มบัตรเครดิต 3) QR Payment 4) KPLUS&amp;PROM รวม KPLUS ไว้ก่อน ต่อด้วย PROMPTPAY แล้วต่อด้วย BCP GreenMiles/ 5) แลกคะแนน 6) อื่นๆ ท้ายกลุ่มมียอดรวมตัวหนา เว้น 3 บรรทัดระหว่างกลุ่ม</li>
       <li>ทั้ง 2 ประเภท: ถ้าหมายเลขบัตรจบด้วย / แล้วไม่มีเลขตามหลัง (ตัวเลขตกไปอีกหน้า) จะหาเลขที่หลุดไปในคอลัมน์หมายเลขบัตรของแถวถัดๆ ไป ก่อนถึงรายการถัดไป แล้วต่อกลับเป็นรายการเดียว</li>
       <li>ทั้ง 2 ประเภท: รหัสกะเป็นระดับใหญ่สุด กะที่ 1 → กลุ่มต่างๆ ของกะนั้น → กะที่ 2 → … ภายในกลุ่มเรียงตามชื่อบัตรหน้า / → ชุดตัวเลขหลัง / จากน้อยไปมาก ทุกกลุ่มขึ้นต้นด้วยแถวหัวคอลัมน์</li>
       <li>ไฟล์ผลลัพธ์แยกชีตตามกะ ชื่อ <code>shift_รหัสกะ</code> เช่น shift_7514 และมีชีตรวมทุกกะชื่อ <code>shift_all</code></li>
@@ -492,7 +492,13 @@ tr.hdr td:first-child{background:var(--accent-soft);color:var(--accent)}
       const c = isBlank(r.data[2]) ? '' : String(r.data[2]);
       (order.find(b=>b.def.test(c)) || other).rows.push(r);
     });
-    return buckets.concat([other]).filter(g=>g.rows.length);
+    // credit-card items whose receipt number (A) is digits only, e.g. 01261000265, are debtor payments: own group right after บัตรเครดิต
+    const card = buckets.find(b=>b.def.id===2);
+    const debtor = {label:'ลูกหนี้ชำระเงิน', rows: card.rows.filter(r=>/^\d+$/.test(String(r.data[0] ?? '').trim()))};
+    card.rows = card.rows.filter(r=>!debtor.rows.includes(r));
+    const list = [];
+    buckets.forEach(b=>{ list.push(b); if (b === card) list.push(debtor); });
+    return list.concat([other]).filter(g=>g.rows.length);
   }
   // groups stay as before; inside each group: shift code, then card name before "/", then the number after "/"
   const digitsAfter = v => afterSlash(v).replace(/\D/g,'');
